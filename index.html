@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8">
+    <title>Top 10 Cafes in Seattle 2022</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #container {
+            display: flex;
+            height: 100vh;
+            flex-direction: row;
+            align-items: stretch;
+        }
+
+        #side-panel {
+            flex-basis: 400px;
+            overflow-y: scroll;
+            padding: 20px;
+        }
+
+        #map {
+            flex-grow: 1;
+        }
+
+        button {
+            margin-bottom: 10px;
+        }
+
+        table {
+            border-collapse: collapse;
+            border-spacing: 0;
+            width: 100%;
+            border: 1px solid #ddd;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 16px;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <main id="container">
+        <div id="side-panel">
+            <h2>Top 10 Cafes in Seattle 2022</h2>
+            <button id="sort-rating">Sort by Rating</button>
+            <button id="sort-time">Sort by Closing Time</button>
+            <table>
+                <thead>
+                    <tr>
+                        <th>id</th>
+                        <th>name</th>
+                        <th>rating</th>
+                        <th>closing time</th>
+                    </tr>
+                </thead>
+                <tbody id="cafes-list">
+                </tbody>
+            </table>
+        </div>
+        <div id="map"></div>
+    </main>
+    <script>
+        // Define the Mapbox access token
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZGFoZXVubGVlIiwiYSI6ImNseXNpYXRjejBpajUya29kbXRpZHJyeWQifQ.re-Mnh9dKxYtROCxcLwYjQ';
+
+        // Create the map object
+        let map = new mapboxgl.Map({
+            container: 'map', // container ID
+            style: 'mapbox://styles/mapbox/streets-v11', // style URL
+            zoom: 12, // starting zoom
+            center: [-122.3321, 47.6062] // starting center [longitude, latitude]
+        });
+
+        // Function to fetch GeoJSON data
+        async function fetchGeoJsonData(file) {
+            const response = await fetch(file);
+            const data = await response.json();
+            return data.features;
+        }
+
+        // Function to populate cafes list in the side panel
+        function populateCafesList(cafes) {
+            const cafesList = document.getElementById('cafes-list');
+            cafesList.innerHTML = '';
+            cafes.forEach(cafe => {
+                let row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${cafe.properties.id}</td>
+                    <td>${cafe.properties.name}</td>
+                    <td>${cafe.properties.rating}</td>
+                    <td>${cafe.properties.closing_time}</td>
+                `;
+                cafesList.appendChild(row);
+            });
+        }
+
+        // Function to sort cafes list
+        function sortCafesList(cafes, sortBy) {
+            cafes.sort((a, b) => {
+                if (sortBy === 'rating') {
+                    return b.properties.rating - a.properties.rating;
+                } else if (sortBy === 'closing_time') {
+                    return new Date('1970/01/01 ' + b.properties.closing_time) - new Date('1970/01/01 ' + a.properties.closing_time);
+                }
+            });
+            populateCafesList(cafes);
+        }
+
+        // Initialize the map and load data
+        map.on('load', async () => {
+            const cafes = await fetchGeoJsonData('assets/cafes.geojson');
+            const seattleOutline = await fetchGeoJsonData('assets/seattle_outline.geojson');
+
+            map.addSource('cafes', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: cafes
+                }
+            });
+
+            map.addLayer({
+                'id': 'cafes-layer',
+                'type': 'circle',
+                'source': 'cafes',
+                'paint': {
+                    'circle-radius': 8,
+                    'circle-color': 'blue'
+                }
+            });
+
+            map.addSource('seattle-outline', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: seattleOutline
+                }
+            });
+
+            map.addLayer({
+                'id': 'seattle-outline-layer',
+                'type': 'fill',
+                'source': 'seattle-outline',
+                'paint': {
+                    'fill-color': '#C8A2C8', // lilac color fill
+                    'fill-opacity': 0.4
+                }
+            });
+
+            // Populate the side panel with cafes list
+            populateCafesList(cafes);
+
+            // Add event listeners for sorting buttons
+            document.getElementById('sort-rating').addEventListener('click', () => sortCafesList(cafes, 'rating'));
+            document.getElementById('sort-time').addEventListener('click', () => sortCafesList(cafes, 'closing_time'));
+        });
+    </script>
+</body>
+</html>
